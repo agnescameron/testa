@@ -31,101 +31,112 @@ Adafruit_SharpMem display(SHARP_SCK, SHARP_MOSI, SHARP_SS, SHARP_WIDTH, SHARP_HE
 // create rotaryencoder object
 AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ROTARY_ENCODER_PIN_A, ROTARY_ENCODER_PIN_B, ROTARY_ENCODER_PIN_BT, ROTARY_ENCODER_VCC_PIN, ROTARY_ENCODER_STEPS);
 
-uint8_t state = 1;
+uint8_t state = 0;
+uint8_t scroll_state = 0;
+uint8_t last_button_state = 1;
+static unsigned long lastTimePressed = 0;
+
 //0 -- welcome screen
 //1 -- navigation screen
 //2 -- bitmap
 //3 -- info text
 
-void rotary_onButtonClick()
-{
-      int value = NUM_ENTRIES - 1 - rotaryEncoder.readEncoder()%NUM_ENTRIES;
+int handle_click() {
+    if(state == 0) return 1;
+    else if(state == 1) return 2;
+    else if(state == 2) return 3;
+    else if(state == 3) return 1;
+}
 
-      if(state == 1) {
-        //show bitmap
-        state = 2;
-        display.clearDisplay();
-        display.setCursor(0,0); // Start at top-left corner
-        display.drawBitmap(0, 0, bitmaps[value], SHARP_WIDTH, SHARP_HEIGHT, BLACK);
-        display.refresh();
+int handle_hold() {
+    if(state == 0) return 4;
+    else if(state == 1) return 0;
+    else if(state == 2) return 0;
+    else if(state == 3) return 0;
+}
+
+void display_state(int scroll_state) {
+    display.clearDisplay();
+
+    if(state == 0) {
+        //welcome screen
+        display.setCursor(5, 5); // Start at top-left corner
+        display.setTextColor(BLACK, WHITE);
+        display.setTextSize(3);
+        display.println("Testa");
+        display.setTextSize(2);
+        display.print(welcome_text);
+    }
+
+     else if(state == 1) {
+        display.setCursor(0, 0); // Start at top-left corner
+        display.setTextSize(2);
+        display.setTextColor(BLACK, WHITE);
+        display.print(main_text);
+        display.print(texts[scroll_state][0]);
+        display.setTextColor(WHITE, BLACK);
+        display.print(texts[scroll_state][1]);
+        display.setTextColor(BLACK, WHITE);
+        display.print(texts[scroll_state][2]);
       }
 
     else if(state == 2) {
-        //show info
-        state = 3;
-        display.clearDisplay();
         display.setCursor(0,0); // Start at top-left corner
-        display.println(texts[value][3]);
-        display.refresh();
+        display.drawBitmap(0, 0, bitmaps[scroll_state], SHARP_WIDTH, SHARP_HEIGHT, BLACK);
     }
 
-    // else if(state == 3) {
-    //     //reset to nav screen
-    //     display.clearDisplay();
-    //     display.setCursor(0,0); // Start at top-left corner
-    //     display.println(texts[value][3]);
-    //     display.refresh();
-    //     state = 1;
-    // }
-
-    else
+    else if (state == 3)
     {
-        state = 1;
-        display.clearDisplay();
-        int value = NUM_ENTRIES - 1 - rotaryEncoder.readEncoder()%NUM_ENTRIES;
-        Serial.println(value);
-        display.clearDisplay();
-        display.setCursor(0, 0); // Start at top-left corner
-        display.setTextSize(2);
-
-        display.setTextColor(BLACK, WHITE);
-        display.print(texts[value][0]);
-        display.setTextColor(WHITE, BLACK);
-        display.print(texts[value][1]);
-        display.setTextColor(BLACK, WHITE);
-        display.print(texts[value][2]);
-        display.refresh();
+        display.setCursor(0,0); // Start at top-left corner
+        display.println(texts[scroll_state][3]);
     }
+
+    else if (state == 4)
+    {
+        display.setCursor(0,0); // Start at top-left corner
+        display.println("easter egg");
+    }
+
+    display.refresh();
 }
 
 void rotary_loop()
 {
 
-    static unsigned long lastTimePressed = 0;
-  //ignore multiple press in that time milliseconds
-    if (millis() - lastTimePressed < 50)
-      {
-        return;
-      }
-    lastTimePressed = millis();
-    
-    if (rotaryEncoder.encoderChanged())
-    {
-      if(state == 1)
-      {
-        //reset the info
-        int value = NUM_ENTRIES - 1 - rotaryEncoder.readEncoder()%NUM_ENTRIES;
-        Serial.println(value);
-        display.clearDisplay();
-        display.setCursor(0, 0); // Start at top-left corner
-        display.setTextSize(2);
 
-        display.setTextColor(BLACK, WHITE);
-        display.print(texts[value][0]);
-        display.setTextColor(WHITE, BLACK);
-        display.print(texts[value][1]);
-        display.setTextColor(BLACK, WHITE);
-        display.print(texts[value][2]);
+    int button_state = digitalRead(ROTARY_ENCODER_PIN_BT); // 1 when released, 0 when pressed
 
-        // Send the buffer to the display
-        display.refresh();
+    if (button_state != last_button_state){
+      int current_millis = millis();
+
+      // get falling edge
+     if (button_state == 1){
+        if ((current_millis - lastTimePressed) > 2000){
+          state = handle_hold();
+          display_state(scroll_state);
+        }
+
+        else if ((current_millis - lastTimePressed) > 30){
+          state = handle_click();
+          display_state(scroll_state);
+        }
       }
+     
+     else if (button_state == 0 && (current_millis - lastTimePressed) > 30){
+      lastTimePressed = millis();
+     }
     }
 
-  if (rotaryEncoder.isEncoderButtonClicked())
-    {
-        rotary_onButtonClick();
-    }
+
+    // handle scroll state
+    if (state == 1 && rotaryEncoder.encoderChanged())
+      {
+        int value = 999 - rotaryEncoder.readEncoder();
+        scroll_state = value%NUM_ENTRIES;
+        display_state(scroll_state);
+      }
+
+    last_button_state = button_state;
 }
 
 void IRAM_ATTR readEncoderISR()
@@ -160,25 +171,12 @@ void setup() {
 
     rotaryEncoder.begin();
     rotaryEncoder.setup(readEncoderISR);
-    rotaryEncoder.setBoundaries(0, 1000, true); //minValue, maxValue, circleValues true|false (when max go to min and vice versa)
-    //rotaryEncoder.setAcceleration(250);
+    rotaryEncoder.setBoundaries(0, 999, true); //minscroll_state, maxscroll_state, circlescroll_states true|false (when max go to min and vice versa)
     rotaryEncoder.disableAcceleration();
-
-    //welcome screen
-    display.clearDisplay();
-    display.setCursor(0, 0); // Start at top-left corner
-    display.setTextColor(BLACK, WHITE);
-    display.setTextSize(3);
-    display.println("Testa");
-    display.setTextSize(2);
-    display.print(welcome_text);
-    // Send the buffer to the display
-    display.refresh();
-
+    display_state(0);
 
 }
 
 void loop() {
   rotary_loop();
-  delay(50);
 }

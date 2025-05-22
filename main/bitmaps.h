@@ -1,7 +1,8 @@
 #ifndef _BITMAPS_H    // Put these two lines at the top of your file.
 #define _BITMAPS_H    // (Use a suitable name, usually based on the file name.)
 
-const char *welcome_text = "Welcome to the Testa project, which contains a series of accounts of our relationships to plant life. In this object you will find an interwoven series of stories, navigated from a main text. Use the dial to navigate between stories -- click to find out more about a plant. Press and hold to return to this screen at any time. Turn the dial to continue...";
+const char *welcome_text = "Welcome to the Testa project, which contains a series of accounts of our relationships to plant life. In this object you will find an interwoven series of stories, navigated from a main text. Use the dial to navigate between stories -- click to find out more about a plant. Press and hold to return to this screen at any time. Click to continue...";
+const char *main_text = "Scroll to navigate through the different stories -- click to enter. ";
 
 const char *texts[4][4] = {
     {"Jazmin chose to write about ", "goji berries", ". Agnes chose to write about chamomile. Another person wrote about nutmeg. Someone else wrote about turmeric.", "main text about goji berries"},
