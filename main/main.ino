@@ -36,6 +36,11 @@ uint8_t state = 0;
 uint8_t scroll_state = 0;
 uint8_t last_button_state = 1;
 static unsigned long lastTimePressed = 0;
+struct offset_wrap { 
+  String text;
+  int offset;
+};
+
 
 //0 -- welcome screen
 //1 -- navigation screen
@@ -76,6 +81,26 @@ String wrap(String s, int limit){
     return s;
 }
 
+struct offset_wrap offsetWrap(String s, int limit, int offset){
+  int space = 0;
+  int i = 0;
+  int line = offset;
+  while(i<s.length()){
+    if(s.substring(i,i+1)==" "){
+      space=i; 
+    }
+    if(line > limit-1){ 
+      s=s.substring(0,space)+"~"+s.substring(space+1);
+      line = 0;
+      i = space+1;
+    }
+    i++;
+    line++;
+  }
+  s.replace("~","\n");
+    return {s, line};
+}
+
 
 void display_state(int scroll_state) {
     display.clearDisplay();
@@ -94,12 +119,16 @@ void display_state(int scroll_state) {
         display.setCursor(0, 0); // Start at top-left corner
         display.setTextSize(2);
         display.setTextColor(BLACK, WHITE);
-        display.print(main_text);
-        display.print(texts[scroll_state][0]);
+        offset_wrap ow1 = offsetWrap(main_text, MAINTEXT_MAXLEN, 0);
+        display.print(ow1.text);
+        offset_wrap ow2 = offsetWrap(texts[scroll_state][0], MAINTEXT_MAXLEN, ow1.offset);
+        display.print(ow2.text);
         display.setTextColor(WHITE, BLACK);
-        display.print(texts[scroll_state][1]);
+        offset_wrap ow3 = offsetWrap(texts[scroll_state][1], MAINTEXT_MAXLEN,  ow2.offset);
+        display.print(ow3.text);
         display.setTextColor(BLACK, WHITE);
-        display.print(texts[scroll_state][2]);
+        offset_wrap ow4 = offsetWrap(texts[scroll_state][2], MAINTEXT_MAXLEN, ow3.offset);
+        display.print(ow4.text);
       }
 
     else if(state == 2) {
