@@ -24,6 +24,7 @@
 #define NUM_ENTRIES  4
 #define BLACK 0
 #define WHITE 1
+#define MAINTEXT_MAXLEN 32
 
 // Create display object
 Adafruit_SharpMem display(SHARP_SCK, SHARP_MOSI, SHARP_SS, SHARP_WIDTH, SHARP_HEIGHT);
@@ -55,6 +56,27 @@ int handle_hold() {
     else if(state == 3) return 0;
 }
 
+String wrap(String s, int limit){
+  int space = 0;
+  int i = 0;
+  int line = 0;
+  while(i<s.length()){
+    if(s.substring(i,i+1)==" "){
+      space=i; 
+    }
+    if(line > limit-1){ 
+      s=s.substring(0,space)+"~"+s.substring(space+1);
+      line = 0;
+      i = space+1;
+    }
+    i++;
+    line++;
+  }
+  s.replace("~","\n");
+    return s;
+}
+
+
 void display_state(int scroll_state) {
     display.clearDisplay();
 
@@ -65,7 +87,7 @@ void display_state(int scroll_state) {
         display.setTextSize(3);
         display.println("Testa");
         display.setTextSize(2);
-        display.print(welcome_text);
+        display.print(wrap(welcome_text, MAINTEXT_MAXLEN));
     }
 
      else if(state == 1) {
@@ -87,13 +109,13 @@ void display_state(int scroll_state) {
 
     else if (state == 3)
     {
-        display.setCursor(0,0); // Start at top-left corner
-        display.println(texts[scroll_state][3]);
+        display.setCursor(5,5); // Start at top-left corner
+        display.println(wrap(texts[scroll_state][3], MAINTEXT_MAXLEN));
     }
 
     else if (state == 4)
     {
-        display.setCursor(0,0); // Start at top-left corner
+        display.setCursor(5,5); // Start at top-left corner
         display.println("easter egg");
     }
 
@@ -102,8 +124,6 @@ void display_state(int scroll_state) {
 
 void rotary_loop()
 {
-
-
     int button_state = digitalRead(ROTARY_ENCODER_PIN_BT); // 1 when released, 0 when pressed
 
     if (button_state != last_button_state){
@@ -128,12 +148,19 @@ void rotary_loop()
     }
 
 
-    // handle scroll state
+    // handle menu scroll state
     if (state == 1 && rotaryEncoder.encoderChanged())
       {
         int value = 999 - rotaryEncoder.readEncoder();
         scroll_state = value%NUM_ENTRIES;
         display_state(scroll_state);
+      }
+
+    // handle text scroll
+    if (state == 3 && rotaryEncoder.encoderChanged())
+      {
+        int value = 999 - rotaryEncoder.readEncoder();
+
       }
 
     last_button_state = button_state;

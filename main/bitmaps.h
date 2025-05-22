@@ -5,7 +5,7 @@ const char *welcome_text = "Welcome to the Testa project, which contains a serie
 const char *main_text = "Scroll to navigate through the different stories -- click to enter. ";
 
 const char *texts[4][4] = {
-    {"Jazmin chose to write about ", "goji berries", ". Agnes chose to write about chamomile. Another person wrote about nutmeg. Someone else wrote about turmeric.", "main text about goji berries"},
+    {"Jazmin chose to write about ", "goji berries", ". Agnes chose to write about chamomile. Another person wrote about nutmeg. Someone else wrote about turmeric.", "main text about goji berries, main text about goji berries, main text about goji berries, main text about goji berries, main text about goji berries, main text about goji berries, main text about goji berries, main text about goji berries, main text about goji berries, main text about goji berries, main text about goji berries"},
     {"Jazmin chose to write about goji berries. Agnes chose to write about ", "chamomile", ". Another person wrote about nutmeg. Someone else wrote about turmeric.", "main text about chamomile"},
     {"Jazmin chose to write about goji berries. Agnes chose to write about chamomile. Another person wrote about ", "nutmeg", ". Someone else wrote about turmeric.", "main text about nutmeg"},
     {"Jazmin chose to write about goji berries. Agnes chose to write about chamomile. Another person wrote about nutmeg. Someone else wrote about ", "turmeric", ".", "main text about turmeric"},
