@@ -35,6 +35,9 @@ AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ROTARY_ENCODER_PIN_A, 
 uint8_t state = 0;
 uint8_t scroll_state = 0;
 uint8_t last_button_state = 1;
+int text_scroll_offset = 0;
+int last_encoder_pos = 0;
+
 static unsigned long lastTimePressed = 0;
 struct offset_wrap { 
   String text;
@@ -102,6 +105,23 @@ struct offset_wrap offsetWrap(String s, int limit, int offset){
 }
 
 
+// clip off first N lines of text
+String text_buffer(String s, int offset_counter){
+  int space = 0;
+  int i = 0;
+  int line = 0;
+  String clipped = s;
+
+  while(i<s.length() && offset_counter > 0){
+    if(s[i] == '\n'){
+      clipped = s.substring(i+1,s.length());
+      offset_counter--;
+    }
+    i++;
+  }
+  return clipped;
+}
+
 void display_state(int scroll_state) {
     display.clearDisplay();
 
@@ -138,8 +158,10 @@ void display_state(int scroll_state) {
 
     else if (state == 3)
     {
-        display.setCursor(5,5); // Start at top-left corner
-        display.println(wrap(texts[scroll_state][3], MAINTEXT_MAXLEN));
+        display.setCursor(0,0);
+        Serial.println(text_scroll_offset);
+        String clipped_text = text_buffer(wrap(texts[scroll_state][3], MAINTEXT_MAXLEN), text_scroll_offset);
+        display.println(clipped_text);
     }
 
     else if (state == 4)
@@ -175,24 +197,37 @@ void rotary_loop()
       lastTimePressed = millis();
      }
     }
+    last_button_state = button_state;
 
 
     // handle menu scroll state
-    if (state == 1 && rotaryEncoder.encoderChanged())
-      {
-        int value = 999 - rotaryEncoder.readEncoder();
-        scroll_state = value%NUM_ENTRIES;
-        display_state(scroll_state);
-      }
+    if(rotaryEncoder.encoderChanged()){
+      if (state == 1)
+        {
+          int value = 999 - rotaryEncoder.readEncoder();
+          scroll_state = value%NUM_ENTRIES;
+          display_state(scroll_state);
+        }
 
-    // handle text scroll
-    if (state == 3 && rotaryEncoder.encoderChanged())
-      {
-        int value = 999 - rotaryEncoder.readEncoder();
+      // handle text scroll
+      if (state == 3)
+        {
+          int value = rotaryEncoder.readEncoder();
+          if(value < last_encoder_pos){
+            text_scroll_offset+=1;
+            display_state(scroll_state);
+          }
+          else if (value > last_encoder_pos){
+            text_scroll_offset-=1;
+            if(text_scroll_offset < 0) text_scroll_offset = 0;
+            display_state(scroll_state);
+          }
 
-      }
+          last_encoder_pos = value;
+        }
+    };
 
-    last_button_state = button_state;
+
 }
 
 void IRAM_ATTR readEncoderISR()
