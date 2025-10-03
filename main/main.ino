@@ -51,17 +51,31 @@ struct offset_wrap {
 //3 -- info text
 
 int handle_click() {
-    if(state == 0) return 1;
+    if(state == 0) {
+      text_scroll_offset = 0;
+      return 1;
+    }
     else if(state == 1) return 2;
     else if(state == 2) return 3;
-    else if(state == 3) return 1;
+    else if(state == 3) {
+      text_scroll_offset = 0;
+      return 1;
+    }
+    else if(state == 4) return 0;
 }
 
 int handle_hold() {
-    if(state == 0) return 4;
+    if(state == 0) {
+      text_scroll_offset = 0;
+      return 4;
+    }
     else if(state == 1) return 0;
     else if(state == 2) return 0;
-    else if(state == 3) return 0;
+    else if(state == 3) {
+      text_scroll_offset = 0;
+      return 0;
+    }
+    else if(state == 4) return 0;
 }
 
 String wrap(String s, int limit){
@@ -69,6 +83,10 @@ String wrap(String s, int limit){
   int i = 0;
   int line = 0;
   while(i<s.length()){
+    if(s.substring(i,i+2)=="~"){
+      line=0;
+      Serial.println("found newline");
+    }
     if(s.substring(i,i+1)==" "){
       space=i; 
     }
@@ -80,7 +98,7 @@ String wrap(String s, int limit){
     i++;
     line++;
   }
-  s.replace("~","\n");
+  s.replace("~","\n ");
     return s;
 }
 
@@ -89,6 +107,10 @@ struct offset_wrap offsetWrap(String s, int limit, int offset){
   int i = 0;
   int line = offset;
   while(i<s.length()){
+    if(s.substring(i,i+2)=="~"){
+      line=0;
+      Serial.println("found newline");
+    }
     if(s.substring(i,i+1)==" "){
       space=i; 
     }
@@ -100,7 +122,7 @@ struct offset_wrap offsetWrap(String s, int limit, int offset){
     i++;
     line++;
   }
-  s.replace("~","\n");
+  s.replace("~","\n ");
     return {s, line};
 }
 
@@ -132,23 +154,26 @@ void display_state(int scroll_state) {
         display.setTextSize(3);
         display.println("Testa");
         display.setTextSize(2);
-        display.print(wrap(welcome_text, MAINTEXT_MAXLEN));
+        String clipped_text = text_buffer(wrap(welcome_text, MAINTEXT_MAXLEN), text_scroll_offset);
+        display.print(clipped_text);
     }
 
      else if(state == 1) {
-        display.setCursor(0, 0); // Start at top-left corner
+        display.setCursor(5, 5); // Start at top-left corner
+        display.setTextColor(BLACK, WHITE);
+        display.setTextSize(3);
+        display.println("Main Menu");
+
         display.setTextSize(2);
-        display.setTextColor(BLACK, WHITE);
-        offset_wrap ow1 = offsetWrap(main_text, MAINTEXT_MAXLEN, 0);
-        display.print(ow1.text);
-        offset_wrap ow2 = offsetWrap(texts[scroll_state][0], MAINTEXT_MAXLEN, ow1.offset);
-        display.print(ow2.text);
-        display.setTextColor(WHITE, BLACK);
-        offset_wrap ow3 = offsetWrap(texts[scroll_state][1], MAINTEXT_MAXLEN,  ow2.offset);
-        display.print(ow3.text);
-        display.setTextColor(BLACK, WHITE);
-        offset_wrap ow4 = offsetWrap(texts[scroll_state][2], MAINTEXT_MAXLEN, ow3.offset);
-        display.print(ow4.text);
+        display.println(wrap(main_text, MAINTEXT_MAXLEN));
+        uint32_t menu_length = sizeof(menu) / sizeof(menu[0]);
+
+        for (int i=0; i<menu_length; i++){
+          if(i == scroll_state) display.setTextColor(WHITE, BLACK);
+          else display.setTextColor(BLACK, WHITE);
+          String menu_text = wrap(menu[i][0], MAINTEXT_MAXLEN);
+          display.println(menu_text);
+        }
       }
 
     else if(state == 2) {
@@ -158,9 +183,13 @@ void display_state(int scroll_state) {
 
     else if (state == 3)
     {
-        display.setCursor(0,0);
+        display.setCursor(5, 5);
+        display.setTextColor(BLACK, WHITE);
+        display.setTextSize(3);
+        display.println(menu[scroll_state][1]);
         Serial.println(text_scroll_offset);
-        String clipped_text = text_buffer(wrap(texts[scroll_state][3], MAINTEXT_MAXLEN), text_scroll_offset);
+        display.setTextSize(2);
+        String clipped_text = text_buffer(wrap(menu[scroll_state][2], MAINTEXT_MAXLEN), text_scroll_offset);
         display.println(clipped_text);
     }
 
@@ -210,7 +239,7 @@ void rotary_loop()
         }
 
       // handle text scroll
-      if (state == 3)
+      if (state == 0 || state == 3)
         {
           int value = rotaryEncoder.readEncoder();
           if(value < last_encoder_pos){
@@ -219,6 +248,7 @@ void rotary_loop()
           }
           else if (value > last_encoder_pos){
             text_scroll_offset-=1;
+            //return here to prevent rerender
             if(text_scroll_offset < 0) text_scroll_offset = 0;
             display_state(scroll_state);
           }
