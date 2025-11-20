@@ -20,6 +20,9 @@
 #define SHARP_WIDTH  400
 #define SHARP_HEIGHT 240
 
+// wakup control pins
+#define WAKEUP_PIN_BITMASK (1 << GPIO_NUM_8 | 1 << GPIO_NUM_9 )
+
 //program variables
 #define NUM_ENTRIES  4
 #define BLACK 0
@@ -202,8 +205,10 @@ void display_state(int scroll_state) {
         display.println("easter egg");
     }
 
-    else {
+    else if (state == 5) {
       display.clearDisplay();
+      Serial.println("sleeping now");
+      esp_deep_sleep_start();
     }
 
     display.refresh();
@@ -306,6 +311,9 @@ void setup() {
 
     Serial.println("Display initialized successfully.");
     delay(50);
+
+    // esp_sleep_enable_ext0_wakeup(GPIO_NUM_8, 0);
+    esp_sleep_enable_ext1_wakeup(WAKEUP_PIN_BITMASK, ESP_EXT1_WAKEUP_ANY_LOW);
     // Set the rotation of the display
     display.setRotation(0);
     // Clear the buffer
