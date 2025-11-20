@@ -10,9 +10,9 @@
 #define SHARP_SS   3
 
 // rotary encoder
-#define ROTARY_ENCODER_PIN_A D8
-#define ROTARY_ENCODER_PIN_B D9
-#define ROTARY_ENCODER_PIN_BT D10
+#define ROTARY_ENCODER_PIN_A D8 // clk
+#define ROTARY_ENCODER_PIN_B D9 // dt
+#define ROTARY_ENCODER_PIN_BT D10 // button
 #define ROTARY_ENCODER_VCC_PIN -1 //directly connected to vcc
 #define ROTARY_ENCODER_STEPS 4 //1 or 2
 
@@ -25,6 +25,7 @@
 #define BLACK 0
 #define WHITE 1
 #define MAINTEXT_MAXLEN 32
+#define SLEEP_TIME 3000
 
 // Create display object
 Adafruit_SharpMem display(SHARP_SCK, SHARP_MOSI, SHARP_SS, SHARP_WIDTH, SHARP_HEIGHT);
@@ -37,6 +38,8 @@ uint8_t scroll_state = 0;
 uint8_t last_button_state = 1;
 int text_scroll_offset = 0;
 int last_encoder_pos = 0;
+int last_change = 0;
+bool reset_title = true;
 
 static unsigned long lastTimePressed = 0;
 struct offset_wrap { 
@@ -199,65 +202,89 @@ void display_state(int scroll_state) {
         display.println("easter egg");
     }
 
+    else {
+      display.clearDisplay();
+    }
+
     display.refresh();
 }
 
 void rotary_loop()
 {
     int button_state = digitalRead(ROTARY_ENCODER_PIN_BT); // 1 when released, 0 when pressed
+    int current_millis = millis();
+    bool rotary_changed = rotaryEncoder.encoderChanged();
 
-    if (button_state != last_button_state){
-      int current_millis = millis();
+    if (state == 5) {
+      if (button_state != last_button_state || rotary_changed){
+        last_change = current_millis;
+        lastTimePressed = current_millis;
+        state = 0;
+        display_state(state);
+        Serial.print(button_state);
+        Serial.println("woke up entering zero");
+      };
+    }
 
-      // get falling edge
-     if (button_state == 1){
-        if ((current_millis - lastTimePressed) > 2000){
-          state = handle_hold();
-          display_state(scroll_state);
-        }
+    else {
+      if (button_state != last_button_state){
+        last_change = current_millis;
 
-        else if ((current_millis - lastTimePressed) > 30){
-          state = handle_click();
-          display_state(scroll_state);
+          // get falling edge
+        if (button_state == 1){
+            if ((current_millis - lastTimePressed) > 2000){
+              state = handle_hold();
+              display_state(scroll_state);
+            }
+
+            else if ((current_millis - lastTimePressed) > 100){
+              Serial.println("debounced!");
+              state = handle_click();
+              display_state(scroll_state);
+            }
+          }
+        
+        else if (button_state == 0 && (current_millis - lastTimePressed) > 30){
+          lastTimePressed = current_millis;
         }
       }
-     
-     else if (button_state == 0 && (current_millis - lastTimePressed) > 30){
-      lastTimePressed = millis();
-     }
+      last_button_state = button_state;
+
+      // handle menu scroll state
+      if(rotary_changed){
+        last_change = current_millis;
+        if (state == 1)
+          {
+            int value = 999 - rotaryEncoder.readEncoder();
+            scroll_state = value%NUM_ENTRIES;
+            display_state(scroll_state);
+          }
+
+        // handle text scroll
+        if (state == 0 || state == 3)
+          {
+            int value = rotaryEncoder.readEncoder();
+            if(value < last_encoder_pos){
+              text_scroll_offset+=1;
+              display_state(scroll_state);
+            }
+            else if (value > last_encoder_pos){
+              text_scroll_offset-=1;
+              //return here to prevent rerender
+              if(text_scroll_offset < 0) text_scroll_offset = 0;
+              display_state(scroll_state);
+            }
+
+            last_encoder_pos = value;
+          }
+      };
+
+      if (current_millis - last_change > SLEEP_TIME) {
+        // Serial.println("GOING TO SLEEP");
+        state = 5;
+        display_state(scroll_state);
+      };
     }
-    last_button_state = button_state;
-
-
-    // handle menu scroll state
-    if(rotaryEncoder.encoderChanged()){
-      if (state == 1)
-        {
-          int value = 999 - rotaryEncoder.readEncoder();
-          scroll_state = value%NUM_ENTRIES;
-          display_state(scroll_state);
-        }
-
-      // handle text scroll
-      if (state == 0 || state == 3)
-        {
-          int value = rotaryEncoder.readEncoder();
-          if(value < last_encoder_pos){
-            text_scroll_offset+=1;
-            display_state(scroll_state);
-          }
-          else if (value > last_encoder_pos){
-            text_scroll_offset-=1;
-            //return here to prevent rerender
-            if(text_scroll_offset < 0) text_scroll_offset = 0;
-            display_state(scroll_state);
-          }
-
-          last_encoder_pos = value;
-        }
-    };
-
-
 }
 
 void IRAM_ATTR readEncoderISR()
@@ -294,6 +321,7 @@ void setup() {
     rotaryEncoder.setup(readEncoderISR);
     rotaryEncoder.setBoundaries(0, 999, true); //minscroll_state, maxscroll_state, circlescroll_states true|false (when max go to min and vice versa)
     rotaryEncoder.disableAcceleration();
+    last_change = millis();
     display_state(0);
 
 }
