@@ -28,7 +28,7 @@
 #define BLACK 0
 #define WHITE 1
 #define MAINTEXT_MAXLEN 32
-#define SLEEP_TIME 3000
+#define SLEEP_TIME 10000
 
 // Create display object
 Adafruit_SharpMem display(SHARP_SCK, SHARP_MOSI, SHARP_SS, SHARP_WIDTH, SHARP_HEIGHT);
@@ -50,11 +50,12 @@ struct offset_wrap {
   int offset;
 };
 
-
 //0 -- welcome screen
 //1 -- navigation screen
 //2 -- bitmap
 //3 -- info text
+//4 -- easter egg
+//5 -- sleep
 
 int handle_click() {
     if(state == 0) {
@@ -151,14 +152,22 @@ String text_buffer(String s, int offset_counter){
 }
 
 void display_state(int scroll_state) {
-    display.clearDisplay();
+    // display.clearDisplay();
 
     if(state == 0) {
         //welcome screen
-        display.setCursor(5, 5); // Start at top-left corner
         display.setTextColor(BLACK, WHITE);
-        display.setTextSize(3);
-        display.println("Testa");
+        if(reset_title){
+          display.clearDisplay();
+          display.setCursor(5, 5); // Start at top-left corner
+          display.setTextSize(3);
+          display.println("Testa");
+          reset_title = false;
+        }
+        else {
+          display.fillRect(0, 28, SHARP_WIDTH, SHARP_HEIGHT-30, WHITE);
+        }
+        display.setCursor(0, 30);
         display.setTextSize(2);
         String clipped_text = text_buffer(wrap(welcome_text, MAINTEXT_MAXLEN), text_scroll_offset);
         display.print(clipped_text);
@@ -239,12 +248,16 @@ void rotary_loop()
         if (button_state == 1){
             if ((current_millis - lastTimePressed) > 2000){
               state = handle_hold();
+              reset_title = true;
+              display.clearDisplay();
               display_state(scroll_state);
             }
 
             else if ((current_millis - lastTimePressed) > 100){
               Serial.println("debounced!");
               state = handle_click();
+              reset_title = true;
+              display.clearDisplay();
               display_state(scroll_state);
             }
           }
